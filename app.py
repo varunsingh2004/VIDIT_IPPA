@@ -52,26 +52,24 @@ def main():
     
     # Main content area
     if uploaded_file is not None:
-        # Convert PIL image to numpy array
-        img_array = np.array(image)
-        
-        # Apply processing based on selected options
+        img_array = np.array(image.convert('RGB'))  # Ensure RGB format
         processed_img = img_array.copy()
         
         if smooth:
             processed_img = cv2.GaussianBlur(processed_img, (smoothing_kernel, smoothing_kernel), 0)
         
         if sharpen:
-            kernel = np.array([[0, -1, 0], [-1, 5*sharpen_amount, -1], [0, -1, 0]])
+            kernel = np.array([[0, -1, 0], [-1, 5 * sharpen_amount, -1], [0, -1, 0]])
             processed_img = cv2.filter2D(processed_img, -1, kernel)
         
         if interpolate:
             height, width = processed_img.shape[:2]
-            processed_img = cv2.resize(processed_img, (width*2, height*2), interpolation=cv2.INTER_CUBIC)
+            processed_img = cv2.resize(processed_img, (width * 2, height * 2), interpolation=cv2.INTER_CUBIC)
         
         if make_blue:
-            # Increase blue channel intensity
+            processed_img = processed_img.astype(np.float32)
             processed_img[:, :, 2] = np.clip(processed_img[:, :, 2] * 1.5, 0, 255)
+            processed_img = processed_img.astype(np.uint8)
         
         if add_noise:
             processed_img = (random_noise(processed_img, mode=noise_type, amount=noise_amount) * 255).astype(np.uint8)
@@ -83,7 +81,7 @@ def main():
             processed_img = cv2.warpAffine(processed_img, M, (w, h))
         
         if edge_detect:
-            if len(processed_img.shape) == 3:  # Convert to grayscale if color
+            if len(processed_img.shape) == 3:
                 gray_img = cv2.cvtColor(processed_img, cv2.COLOR_RGB2GRAY)
             else:
                 gray_img = processed_img
@@ -97,9 +95,12 @@ def main():
         with col2:
             st.image(processed_img, caption="Processed Image", use_column_width=True)
             
-            # Download button for processed image
+            # Download processed image
             buf = BytesIO()
-            processed_pil = Image.fromarray(processed_img)
+            if len(processed_img.shape) == 2:
+                processed_pil = Image.fromarray(processed_img)
+            else:
+                processed_pil = Image.fromarray(cv2.cvtColor(processed_img, cv2.COLOR_RGB2BGR))
             processed_pil.save(buf, format="PNG")
             byte_im = buf.getvalue()
             st.download_button(
@@ -109,9 +110,8 @@ def main():
                 mime="image/png"
             )
         
-        # Show processing steps
+        # Show pipeline
         st.subheader("Processing Pipeline")
-        st.write("Applied the following operations in order:")
         operations = []
         if smooth: operations.append(f"Smoothing (kernel size: {smoothing_kernel})")
         if sharpen: operations.append(f"Sharpening (amount: {sharpen_amount})")
@@ -127,5 +127,5 @@ def main():
         else:
             st.write("No operations selected - showing original image")
 
-if __name__ == "_main_":
+if __name__ == "__main__":
     main()
